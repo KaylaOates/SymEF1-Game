@@ -311,7 +311,7 @@ public class GameController : MonoBehaviour
         {
             for(int i = 0; i < A1Goods.Count; i++)
             {
-                if (A1Goods[i] == clickedGood)
+                if (A1Goods[i] == clickedGood || B1Goods[i] == clickedGood)
                 {
                     //update position for future goods
                     posA1 -= A1Goods[i].GetComponent<RectTransform>().sizeDelta.y;
@@ -337,7 +337,7 @@ public class GameController : MonoBehaviour
         {
             for (int i = 0; i < A2Goods.Count; i++)
             {
-                if (A2Goods[i] == clickedGood)
+                if (A2Goods[i] == clickedGood || B2Goods[i] == clickedGood)
                 {
                     //update position for future goods
                     posA2 -= A2Goods[i].GetComponent<RectTransform>().sizeDelta.y;
