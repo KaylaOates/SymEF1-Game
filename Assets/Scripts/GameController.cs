@@ -2,19 +2,36 @@ using UnityEngine;
 using System.Collections.Generic;
 using TMPro;
 using UnityEngine.UI;
-using System.Linq.Expressions;
-using System.Reflection;
-using System.Collections;
+using Random = UnityEngine.Random;
+using System;
+using System.Net.NetworkInformation;
 
 public class GameController : MonoBehaviour
 {
+
+    float[] agentOneValues = { 0f, 3f, 5f, 2f };
+    float[] agentTwoValues = { 1f, 0f, 3f, 6f };
+
     public GameObject canvas;
     public GameObject goodsCanvas;
     public GameObject GoodsPrefab;
     public GameObject letterPrefab;
+    public GameObject scorePrefab;
+    public GameObject highScorePrefab;
+    public GameObject winPrefab;
 
-    float[] agentOneValues = { 5f, 3f, 5f, 4f };
-    float[] agentTwoValues = { 1f, 4f, 3f, 2f };
+    public GameObject Asymef1;
+    public GameObject Bsymef1;
+
+    public GameObject Adisparity;
+    public GameObject Bdisparity;
+
+    float A1Total = 0;
+    float A2Total = 0;
+    float B1Total = 0;
+    float B2Total = 0;
+
+    float HighScore = Mathf.Infinity;
 
     //the curr selected object
     private int selectedObject = -1;
@@ -46,6 +63,14 @@ public class GameController : MonoBehaviour
     void Start()
     {
         Debug.Log("STARTING");
+
+        Asymef1.GetComponent<Text>().text = "";
+        Bsymef1.GetComponent<Text>().text = "";
+        scorePrefab.GetComponent<Text>().text = "Score: 0";
+        Adisparity.GetComponent<Text>().text = "Disparity: 0";
+        Bdisparity.GetComponent<Text>().text = "Disparity: 0";
+        winPrefab.GetComponent<Text>().text = "";
+        highScorePrefab.GetComponent<Text>().text = "";
 
         RectTransform canvasRectTransform = goodsCanvas.GetComponent<RectTransform>();
         float canvasHeight = canvasRectTransform.rect.height;
@@ -93,8 +118,8 @@ public class GameController : MonoBehaviour
             boxColliderB.size = rectTransformB.sizeDelta;
          
             // Add the letter to the goods
-            AddLetterToGood(GoodA, "A" + (i + 1).ToString());
-            AddLetterToGood(GoodB, "B" + (i + 1).ToString());
+            AddLetterToGood(GoodA, " A:" + (agentOneValues[i]).ToString());
+            AddLetterToGood(GoodB, " B:" + (agentTwoValues[i]).ToString());
 
             // Generate random color for each pair
             Color randomColor = new Color((Random.Range(0f, 1.0f) * 1.25f), (Random.Range(0f, 1.0f) * 1.25f), (Random.Range(0f, 1.0f) * 1.25f));
@@ -104,16 +129,15 @@ public class GameController : MonoBehaviour
 
             // Add OnClick event listener to each instantiated object
             int index = i; // Store the index in a local variable
-            GoodA.GetComponent<Button>().onClick.AddListener(() => OnObjectClicked(index));
-            GoodB.GetComponent<Button>().onClick.AddListener(() => OnObjectClicked(index));
+            GoodA.GetComponent<Button>().onClick.AddListener(() => unusedGoodClicked(index));
+            GoodB.GetComponent<Button>().onClick.AddListener(() => unusedGoodClicked(index));
         }
     }
 
-    void OnObjectClicked(int index)
+    void unusedGoodClicked(int index)
     {
         GameObject selectedGoodA = AGoods[index];
         GameObject selectedGoodB = BGoods[index];
-
 
         // ----------------- COLOR CHANGING CODE ----------------- //
 
@@ -156,7 +180,6 @@ public class GameController : MonoBehaviour
             selectedImageB.color = dimColor;
 
             selectedObject = index;
-
 
             // ----------------- GENERATING DUPLICATES TO PREVIEW MOVE ----------------- //
 
@@ -236,12 +259,14 @@ public class GameController : MonoBehaviour
 
             A1Goods.Add(addedGoodA1);
             B1Goods.Add(addedGoodB1);
+            DeleteAll();
+
+            //update the total by adding the value of the good for bundle 1
+            updateTotal(true, 1, addedGoodA1, addedGoodB1);
 
             // update the pos for the next good to be added:
             posA1 += addedGoodA1.GetComponent<RectTransform>().sizeDelta.y;
             posB1 += addedGoodB1.GetComponent<RectTransform>().sizeDelta.y;
-
-            DeleteAll();
 
             //now remove the newly added good from the side panel:
             AGoods[selectedObject].SetActive(false);
@@ -283,6 +308,9 @@ public class GameController : MonoBehaviour
             B2Goods.Add(addedGoodB2);
             DeleteAll();
 
+            //update the total by adding the value of the good for bundle 2
+            updateTotal(true, 2, addedGoodA2, addedGoodB2);
+
             // update the pos for the next good to be added:
             posA2 += addedGoodA2.GetComponent<RectTransform>().sizeDelta.y;
             posB2 += addedGoodB2.GetComponent<RectTransform>().sizeDelta.y;
@@ -291,12 +319,13 @@ public class GameController : MonoBehaviour
             AGoods[selectedObject].SetActive(false);
             BGoods[selectedObject].SetActive(false);
         }
+
+        tempGoods.Clear();
     }
 
     void OnGoodClicked(string AB, int ABlistIndex, int bundle, GameObject clickedGood)
-    { 
+    {
         //restore the good in the side panel:
-
         AGoods[ABlistIndex].SetActive(true);
         BGoods[ABlistIndex].SetActive(true);
 
@@ -305,17 +334,23 @@ public class GameController : MonoBehaviour
         selectedImageA.color = colors[ABlistIndex];
         selectedImageB.color = colors[ABlistIndex];
 
-
         //destroy from bundle list:
-        if(bundle == 0 || bundle == 1)
+        if (bundle == 0 || bundle == 1)
         {
-            for(int i = 0; i < A1Goods.Count; i++)
+            for (int i = 0; i < A1Goods.Count; i++)
             {
                 if (A1Goods[i] == clickedGood || B1Goods[i] == clickedGood)
                 {
                     //update position for future goods
                     posA1 -= A1Goods[i].GetComponent<RectTransform>().sizeDelta.y;
                     posB1 -= B1Goods[i].GetComponent<RectTransform>().sizeDelta.y;
+
+                    //if there is a temp good above it, move that good down
+                    if (tempGoods.Count > 0 && tempGoods[0] != null && tempGoods[2] != null)
+                    {
+                        tempGoods[0].GetComponent<RectTransform>().anchoredPosition = new Vector2(tempGoods[0].GetComponent<RectTransform>().anchoredPosition.x, tempGoods[0].GetComponent<RectTransform>().anchoredPosition.y - A1Goods[i].GetComponent<RectTransform>().sizeDelta.y);
+                        tempGoods[2].GetComponent<RectTransform>().anchoredPosition = new Vector2(tempGoods[2].GetComponent<RectTransform>().anchoredPosition.x, tempGoods[2].GetComponent<RectTransform>().anchoredPosition.y - B1Goods[i].GetComponent<RectTransform>().sizeDelta.y);
+                    }
 
                     //update positions above current good that's being removed:
                     for (int j = i + 1; j < A1Goods.Count; j++)
@@ -324,16 +359,24 @@ public class GameController : MonoBehaviour
                         B1Goods[j].GetComponent<RectTransform>().anchoredPosition = new Vector2(B1Goods[j].GetComponent<RectTransform>().anchoredPosition.x, B1Goods[j].GetComponent<RectTransform>().anchoredPosition.y - B1Goods[i].GetComponent<RectTransform>().sizeDelta.y);
                     }
 
+                    //temp objects to keep count accurate
+                    GameObject tempA1 = A1Goods[i];
+                    GameObject tempB1 = B1Goods[i]; 
+
                     //delete the good
                     Destroy(A1Goods[i]);
                     Destroy(B1Goods[i]);
                     A1Goods.RemoveAt(i);
                     B1Goods.RemoveAt(i);
+
+                    //update the total by subtracting the value of the good for bundle 1
+                    updateTotal(false, 1, tempA1, tempB1);
+
                     break;
                 }
             }
-        } 
-        else if(bundle == 2 || bundle == 3)
+        }
+        else if (bundle == 2 || bundle == 3)
         {
             for (int i = 0; i < A2Goods.Count; i++)
             {
@@ -343,6 +386,13 @@ public class GameController : MonoBehaviour
                     posA2 -= A2Goods[i].GetComponent<RectTransform>().sizeDelta.y;
                     posB2 -= B2Goods[i].GetComponent<RectTransform>().sizeDelta.y;
 
+                    //if there is a temp good above it, move that good down
+                    if(tempGoods.Count > 0 && tempGoods[1] != null && tempGoods[3] != null)
+                    {
+                        tempGoods[1].GetComponent<RectTransform>().anchoredPosition = new Vector2(tempGoods[1].GetComponent<RectTransform>().anchoredPosition.x, tempGoods[1].GetComponent<RectTransform>().anchoredPosition.y - A2Goods[i].GetComponent<RectTransform>().sizeDelta.y);
+                        tempGoods[3].GetComponent<RectTransform>().anchoredPosition = new Vector2(tempGoods[3].GetComponent<RectTransform>().anchoredPosition.x, tempGoods[3].GetComponent<RectTransform>().anchoredPosition.y - B2Goods[i].GetComponent<RectTransform>().sizeDelta.y);
+                    }    
+
                     //update positions above current good that's being removed:
                     for (int j = i + 1; j < A2Goods.Count; j++)
                     {
@@ -350,16 +400,23 @@ public class GameController : MonoBehaviour
                         B2Goods[j].GetComponent<RectTransform>().anchoredPosition = new Vector2(B2Goods[j].GetComponent<RectTransform>().anchoredPosition.x, B2Goods[j].GetComponent<RectTransform>().anchoredPosition.y - B2Goods[i].GetComponent<RectTransform>().sizeDelta.y);
                     }
 
-                    //destroy the good
+                    //temp objects to keep count accurate
+                    GameObject tempA2 = A2Goods[i];
+                    GameObject tempB2 = B2Goods[i];
+
+                    //delete the good
                     Destroy(A2Goods[i]);
                     Destroy(B2Goods[i]);
                     A2Goods.RemoveAt(i);
                     B2Goods.RemoveAt(i);
+
+                    //update the total by subtracting the value of the good for bundle 1
+                    updateTotal(false, 2, tempA2, tempB2);
+
                     break;
                 }
             }
         }
-
     }
 
     void DeleteAll()
@@ -368,6 +425,170 @@ public class GameController : MonoBehaviour
         {
             Destroy(tempGoods[i]);
         }
+    }
+
+    void updateTotal(bool adding, int agent, GameObject goodA, GameObject goodB)
+    {
+
+        Transform childTransformA = goodA.transform.GetChild(0);
+        TextMeshProUGUI textComponentA = childTransformA.GetComponent<TextMeshProUGUI>();
+        string numberStringA = textComponentA.text.Substring(textComponentA.text.IndexOf(":") + 1);
+        int numberA;
+
+        Transform childTransformB = goodB.transform.GetChild(0);
+        TextMeshProUGUI textComponentB = childTransformB.GetComponent<TextMeshProUGUI>();
+        string numberStringB = textComponentB.text.Substring(textComponentB.text.IndexOf(":") + 1);
+        int numberB;
+
+        // updating the total of each bundle of goods:
+        if (int.TryParse(numberStringA, out numberA) && int.TryParse(numberStringB, out numberB))
+        {
+            if(agent == 1)
+            {
+                if(adding)
+                {
+                    A1Total += numberA;
+                    B1Total += numberB;
+                }
+                else
+                {
+                    A1Total -= numberA;
+                    B1Total -= numberB;
+                }
+            }
+            else if(agent == 2)
+            {
+                if(adding)
+                {
+                    A2Total += numberA;
+                    B2Total += numberB;
+                }
+                else
+                {
+                    A2Total -= numberA;
+                    B2Total -= numberB;
+                }
+            }   
+        }
+
+        // ======================================== SYMEF1 CALCULATIONS ======================================== //
+
+
+        //find different between bundles for each agent:
+        float AgentADiff = Mathf.Max(A1Total, A2Total) - Mathf.Min(A1Total, A2Total);
+        float AgentBDiff = Mathf.Max(B1Total, B2Total) - Mathf.Min(B1Total, B2Total);
+
+        //find the largest good in each bundle and then the disparity:
+        float largestGoodA = 0;
+        float disparityA = 0;
+
+        if(A1Total > A2Total) 
+        {
+            largestGoodA = findLargestGood(A1Goods);
+            disparityA = (A1Total - largestGoodA) - A2Total;
+        } 
+        else if(A2Total > A1Total) 
+        {
+            largestGoodA = findLargestGood(A2Goods);
+            disparityA = (A2Total - largestGoodA) - A1Total;
+        } 
+
+        int largestGoodB = 0;
+        float disparityB = 0;
+        if (B1Total > B2Total)
+        {
+            largestGoodB = findLargestGood(B1Goods);
+            disparityB = (B1Total - largestGoodB) - B2Total;
+        }
+        else if (B2Total > B1Total)
+        {
+            largestGoodB = findLargestGood(B2Goods);
+            disparityB = (B2Total - largestGoodB) - B1Total;
+        }
+
+
+        //update the disparity text:
+
+        string outputA = "Disparity: " + Math.Abs(disparityA);
+        Adisparity.GetComponent<Text>().text = outputA;
+
+        string outputB = "Disparity: " + Math.Abs(disparityB);
+        Bdisparity.GetComponent<Text>().text = outputB;
+
+
+        //update the score:
+        float score = Math.Abs(disparityA) + Math.Abs(disparityB);
+        scorePrefab.GetComponent<Text>().text = ("Score: " + score.ToString());
+
+
+        //check for symef1
+        bool symef1WinA = false;
+        if (AgentADiff < largestGoodA || AgentADiff == 0)
+        {
+            Asymef1.GetComponent<Text>().text = "SymeEF1!";
+            symef1WinA = true;
+        }
+        else
+        {
+            Asymef1.GetComponent<Text>().text = "";
+        }
+
+        bool symef1WinB = false;
+        if (AgentBDiff < largestGoodB || AgentBDiff == 0)
+        {
+            Bsymef1.GetComponent<Text>().text = "SymeEF1!";
+            symef1WinB = true;
+        } 
+        else
+        {
+            Bsymef1.GetComponent<Text>().text = "";
+        }
+
+        //check if its a win:
+        checkWin(symef1WinA, symef1WinB, score);
+    }
+
+    void checkWin(bool Asymef1, bool bsymef1, float score)
+    {
+        int totalGoods = AGoods.Count + BGoods.Count;
+        int totalGoodsUsed = A1Goods.Count + A2Goods.Count + B1Goods.Count + B2Goods.Count;
+
+        if(totalGoods == totalGoodsUsed && Asymef1 && bsymef1)
+        {
+            string winnerOutput = "WINNER! \nScore: " + score;
+            winPrefab.GetComponent<Text>().text = winnerOutput;
+
+            if(score < HighScore)
+            {
+                HighScore = score;
+                highScorePrefab.GetComponent<Text>().text = "High Score: " + HighScore;
+            }
+        } 
+        else
+        {
+            winPrefab.GetComponent<Text>().text = "";
+        }
+    }
+
+    int findLargestGood(List<GameObject> Goods)
+    {
+        int largestGood = -1;
+        for (int i = 0; i < Goods.Count; i++)
+        {
+            Transform childTransform = Goods[i].transform.GetChild(0);
+            TextMeshProUGUI textComponent = childTransform.GetComponent<TextMeshProUGUI>();
+            string numberString = textComponent.text.Substring(textComponent.text.IndexOf(":") + 1);
+            int number;
+
+            if (int.TryParse(numberString, out number))
+            {
+                if (number > largestGood)
+                {
+                    largestGood = number;
+                }
+            }
+        }
+        return largestGood;
     }
 
     void AddLetterToGood(GameObject good, string letter)
