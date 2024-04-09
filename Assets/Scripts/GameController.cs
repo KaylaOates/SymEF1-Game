@@ -10,7 +10,7 @@ public class GameController : MonoBehaviour
 {
 
     float[] agentOneValues = { 0f, 3f, 5f, 2f };
-    float[] agentTwoValues = { 1f, 0f, 3f, 6f };
+    float[] agentTwoValues = { 1f, 2f, 3f, 6f };
 
     public GameObject canvas;
     public GameObject goodsCanvas;
@@ -20,11 +20,10 @@ public class GameController : MonoBehaviour
     public GameObject highScorePrefab;
     public GameObject winPrefab;
 
-    public GameObject Asymef1;
-    public GameObject Bsymef1;
-
     public GameObject Adisparity;
     public GameObject Bdisparity;
+    public GameObject AdistSymef1;
+    public GameObject BdistSymef1;
 
     float A1Total = 0;
     float A2Total = 0;
@@ -63,12 +62,13 @@ public class GameController : MonoBehaviour
     void Start()
     {
         Debug.Log("STARTING");
-
-        Asymef1.GetComponent<Text>().text = "";
-        Bsymef1.GetComponent<Text>().text = "";
+        
         scorePrefab.GetComponent<Text>().text = "Score: 0";
         Adisparity.GetComponent<Text>().text = "Disparity: 0";
         Bdisparity.GetComponent<Text>().text = "Disparity: 0";
+        AdistSymef1.GetComponent<Text>().text = "Distance: 0";
+        BdistSymef1.GetComponent<Text>().text = "Distance: 0";
+
         winPrefab.GetComponent<Text>().text = "";
         highScorePrefab.GetComponent<Text>().text = "";
 
@@ -474,75 +474,91 @@ public class GameController : MonoBehaviour
         // ======================================== SYMEF1 CALCULATIONS ======================================== //
 
 
-        //find different between bundles for each agent:
-        float AgentADiff = Mathf.Max(A1Total, A2Total) - Mathf.Min(A1Total, A2Total);
-        float AgentBDiff = Mathf.Max(B1Total, B2Total) - Mathf.Min(B1Total, B2Total);
+        //find different between bundles for each agent (disparity):
+        float disparityA = Mathf.Max(A1Total, A2Total) - Mathf.Min(A1Total, A2Total);
+        float disparityB = Mathf.Max(B1Total, B2Total) - Mathf.Min(B1Total, B2Total);
 
-        //find the largest good in each bundle and then the disparity:
+
+        string DisparityOutputA = "Disparity: " + Math.Abs(disparityA);
+        Adisparity.GetComponent<Text>().text = DisparityOutputA;
+
+        string DisparityOutputB = "Disparity: " + Math.Abs(disparityB);
+        Bdisparity.GetComponent<Text>().text = DisparityOutputB;
+
+
+        //find distance to symef1: (remove largest good from largest bundle, then find the difference between the two bundles)
+        float symef1DistanceA = 0;
         float largestGoodA = 0;
-        float disparityA = 0;
-
-        if(A1Total > A2Total) 
+        if (A1Total > A2Total) 
         {
             largestGoodA = findLargestGood(A1Goods);
-            disparityA = (A1Total - largestGoodA) - A2Total;
+            symef1DistanceA = (A1Total - largestGoodA) - A2Total;
         } 
-        else if(A2Total > A1Total) 
+        else if (A2Total > A1Total) 
         {
             largestGoodA = findLargestGood(A2Goods);
-            disparityA = (A2Total - largestGoodA) - A1Total;
-        } 
+            symef1DistanceA = (A2Total - largestGoodA) - A1Total;
+        }
 
-        int largestGoodB = 0;
-        float disparityB = 0;
+        if (symef1DistanceA < 0)
+        {
+            symef1DistanceA = 0;
+        }
+
+        float symef1DistanceB = 0;
+        float largestGoodB = 0;
         if (B1Total > B2Total)
         {
             largestGoodB = findLargestGood(B1Goods);
-            disparityB = (B1Total - largestGoodB) - B2Total;
+            symef1DistanceB = (B1Total - largestGoodB) - B2Total;
         }
         else if (B2Total > B1Total)
         {
             largestGoodB = findLargestGood(B2Goods);
-            disparityB = (B2Total - largestGoodB) - B1Total;
+            symef1DistanceB = (B2Total - largestGoodB) - B1Total;
+        }
+
+        if (symef1DistanceB < 0)
+        {
+            symef1DistanceB = 0;
         }
 
 
-        //update the disparity text:
-
-        string outputA = "Disparity: " + Math.Abs(disparityA);
-        Adisparity.GetComponent<Text>().text = outputA;
-
-        string outputB = "Disparity: " + Math.Abs(disparityB);
-        Bdisparity.GetComponent<Text>().text = outputB;
-
-
-        //update the score:
-        float score = Math.Abs(disparityA) + Math.Abs(disparityB);
-        scorePrefab.GetComponent<Text>().text = ("Score: " + score.ToString());
-
-
-        //check for symef1
+        //check for symef1, if not update distance to symef1:
         bool symef1WinA = false;
-        if (AgentADiff < largestGoodA || AgentADiff == 0)
+        string distanceOutputA = "";
+        if (symef1DistanceA == 0)
         {
-            Asymef1.GetComponent<Text>().text = "SymeEF1!";
+            distanceOutputA = "SymEF1!";
+            symef1DistanceA = 0;
             symef1WinA = true;
-        }
-        else
-        {
-            Asymef1.GetComponent<Text>().text = "";
-        }
-
-        bool symef1WinB = false;
-        if (AgentBDiff < largestGoodB || AgentBDiff == 0)
-        {
-            Bsymef1.GetComponent<Text>().text = "SymeEF1!";
-            symef1WinB = true;
         } 
         else
         {
-            Bsymef1.GetComponent<Text>().text = "";
+            distanceOutputA = "Distance: " + symef1DistanceA;
         }
+        AdistSymef1.GetComponent<Text>().text = distanceOutputA;
+
+
+        string distanceOutputB = "";
+        bool symef1WinB = false;
+        if (symef1DistanceB == 0)
+        {
+            distanceOutputB = "SymEF1!";
+            symef1DistanceB = 0;
+            symef1WinB = true;
+        }
+        else
+        {
+            distanceOutputB = "Distance: " + symef1DistanceB;
+        }
+        BdistSymef1.GetComponent<Text>().text = distanceOutputB;
+
+
+        //update the score:
+        float score = Math.Abs(symef1DistanceA) + Math.Abs(disparityA) + Math.Abs(symef1DistanceB) + Math.Abs(disparityB);
+        scorePrefab.GetComponent<Text>().text = ("Score: " + score.ToString());
+
 
         //check if its a win:
         checkWin(symef1WinA, symef1WinB, score);
